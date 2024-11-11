@@ -121,7 +121,6 @@ contract Stable is ERC20, Ownable, DSMath {
         require(userPosition.collateral == 0, "User already has position open");
 
         userPosition.collateral = msg.value;
-        console.log("userPosition.collateral", userPosition.collateral);
         userPosition.interestIndexAtLastUpdate_wad = calcCurrentGlobalInterestIndex_wad();
 
         emit PositionOpened(msg.sender, msg.value);
@@ -152,12 +151,9 @@ contract Stable is ERC20, Ownable, DSMath {
     function repayLoan(uint repayAmount) public {
         require(repayAmount > 0, "Repay amount must be greater than 0");
 
-        accrueUserInterest(msg.sender);
-        // todo: should this be here, or in _repayLoan()?
-        // just putting it up there naively would result in the next line not having the right debt value, preventing the user from ever paying back all debt.
-        // so keeping it here for now.
+        require(getPositionDebtWithInterest(msg.sender) >= repayAmount, "Repay amount must be equal to or less than debt");
 
-        require(userPositions[msg.sender].debt >= repayAmount, "Repay amount must be equal to or less than debt");
+        accrueUserInterest(msg.sender);
 
         repayLoanFromMsgSender(msg.sender, repayAmount);
     }
@@ -175,7 +171,8 @@ contract Stable is ERC20, Ownable, DSMath {
 
         uint collateralToReturn = userPosition.collateral;
         userPosition.collateral = 0;
-        payable(msg.sender).transfer(collateralToReturn); // todo: better method?
+
+        payable(msg.sender).transfer(collateralToReturn);
 
         emit PositionClosed(msg.sender);
     }
@@ -189,17 +186,21 @@ contract Stable is ERC20, Ownable, DSMath {
 
         require(userPosition.collateral > 0, "User does not have a position open");
 
-        accrueUserInterest(user);
+        uint accruedDebt = getPositionDebtWithInterest(user);
 
-        uint requiredCollateral_debtDenominated = wmul(userPosition.debt, POSITION_LIQUIDATE_LTV_WAD);
+        uint requiredCollateral_debtDenominated = wmul(accruedDebt, POSITION_LIQUIDATE_LTV_WAD);
         uint requiredCollateral = wdiv(requiredCollateral_debtDenominated, priceOracle.ethPrice());
 
         require(userPosition.collateral < requiredCollateral, "User is not undercollateralized");
 
+        accrueUserInterest(user);
+
         repayLoanFromMsgSender(user, userPosition.debt);
 
-        payable(msg.sender).transfer(userPosition.collateral); // todo: better method?
+        uint collateralToReturn = userPosition.collateral;
         userPosition.collateral = 0;
+
+        payable(msg.sender).transfer(collateralToReturn);
 
         emit PositionLiquidated(user);
     }
