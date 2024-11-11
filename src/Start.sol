@@ -223,7 +223,6 @@ contract Stable is ERC20, Ownable, DSMath {
     function accrueUserInterest(address user) internal {
         userPositions[user].debt = getPositionDebtWithInterest(user);
         userPositions[user].interestIndexAtLastUpdate_wad = calcCurrentGlobalInterestIndex_wad();
-        // todo: the above results in two calls to calcCurrentGlobalInterestIndex_wad; code should be reorganized to avoid this.
     }
 
     /// @notice Internal function to handle loan repayment logic
