@@ -6,14 +6,15 @@ import "@ds-math/math.sol";
 import "../src/Start.sol";
 
 contract CounterTest is Test, DSMath {
-    MockPriceOracle public priceOracle;
-    Stable public stable;
-
     address user1 = address(0x1);
     address liquidator = address(0x2);
     address priceOracleOwner = address(0x3);
+    address stableContractOwner = address(0x4);
 
-    uint firstInterestRate_wad = 1.000001e18;
+    MockPriceOracle public priceOracle;
+    Stable public stable;
+
+    uint firstInterestRate_wad = 1.0000001e18;
 
     // Go from wad (10**18) to ray (10**27)
     function wadToRay(uint _wad) internal pure returns (uint) {
@@ -31,7 +32,9 @@ contract CounterTest is Test, DSMath {
         priceOracle = new MockPriceOracle();
         priceOracle.setPrice(3000e18);
         vm.stopPrank();
+        vm.startPrank(stableContractOwner);
         stable = new Stable(priceOracle, wadToRay(firstInterestRate_wad));
+        vm.stopPrank();
         
         vm.deal(user1, 10e18);
     }
@@ -79,5 +82,30 @@ contract CounterTest is Test, DSMath {
         assertEq(address(liquidator).balance, 1e18);
     }
 
-    // schalk scenario
+    // function test_changingInterestScenario() public {
+    //     // interest rate starts at 1.1
+
+    //     // at t=100, user opens a position with 1ETH and takes a loan of 1000
+    //     vm.warp(100);
+    //     vm.startPrank(user1);
+    //     stable.openPosition{value:1e18}();
+    //     stable.takeLoan(1000e18);
+    //     vm.stopPrank();
+
+    //     // at t=200, interest rate changes to 1.2
+    //     vm.warp(200);
+    //     vm.startPrank(stableContractOwner);
+    //     stable.updateInterestRate(wadToRay(1.0000001e18));
+    //     vm.stopPrank();
+
+    //     // at t=300, user repays 1000
+    //     vm.warp(300);
+    //     vm.startPrank(user1);
+    //     stable.repayLoan(1000e18);
+    //     vm.stopPrank();
+
+    //     // due to interest, user should have more debt left over.
+    //     // they should have accrued the first interest rate for 100 seconds, and the second interest rate for 100 seconds.
+    //     // TODO: calculate this value and assert that's what comes out.
+    // }
 }
