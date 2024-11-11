@@ -95,6 +95,10 @@ contract Stable is ERC20, Ownable, DSMath {
         return userPosition.debt * calcCurrentGlobalInterestIndex_wad() / userPosition.interestIndexAtLastUpdate_wad;
     }
 
+    function getPositionCollateral(address user) external view returns (uint) {
+        return userPositions[user].collateral;
+    }
+
     function openPosition() external payable {
         require(msg.value > 0, "Deposit must be greater than 0");
 
@@ -179,7 +183,14 @@ contract Stable is ERC20, Ownable, DSMath {
         uint requiredCollateral_debtDenominated = wmul(userPosition.debt, POSITION_LIQUIDATE_LTV);
         uint requiredCollateral = wdiv(requiredCollateral_debtDenominated, priceOracle.ethPrice());
 
-        require(userPosition.collateral < requiredCollateral, "Not enough collateral to liquidate position");
+        // console.log("requiredCollateral_debtDenominated", requiredCollateral_debtDenominated);
+        // console.log("priceOracle.ethPrice()", priceOracle.ethPrice());
+        
+        // console.log("user debt", userPosition.debt);
+        // console.log("requiredCollateral", requiredCollateral);
+        // console.log("user collateral", userPosition.collateral);
+
+        require(userPosition.collateral < requiredCollateral, "User is not undercollateralized");
 
         _repayLoanFromMsgSender(user, userPosition.debt);
 
@@ -188,7 +199,6 @@ contract Stable is ERC20, Ownable, DSMath {
 
         emit PositionLiquidated(user);
     }
-
 
     // taken and modified from https://github.com/wolflo/solidity-interest-helper/blob/master/contracts/Interest.sol#L63C5
     function accrueInterest_wad(uint _principal, uint _rate_ray, uint _age) internal pure returns (uint) {
