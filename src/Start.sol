@@ -5,6 +5,8 @@ import "@openzeppelin/token/ERC20/ERC20.sol";
 import "@openzeppelin/access/Ownable.sol";
 import "@ds-math/math.sol";
 
+import {console} from "forge-std/console.sol";
+
 contract MockPriceOracle {
     address public owner;
 
@@ -78,7 +80,7 @@ contract Stable is ERC20, Ownable, DSMath {
         return accrueInterest_wad(globalInterestIndex_wad, interestRatePerSecond_ray, secondsElapsed);
     }
 
-    function getPositionDebtWithInterest(address user) internal view returns (uint) {
+    function getPositionDebtWithInterest(address user) public view returns (uint) {
         Position storage userPosition = userPositions[user];
 
         if (userPosition.debt == 0) {
@@ -96,6 +98,7 @@ contract Stable is ERC20, Ownable, DSMath {
         require(userPosition.collateral == 0, "User already has position open");
 
         userPosition.collateral = msg.value;
+        console.log("userPosition.collateral", userPosition.collateral);
         userPosition.interestIndexAtLastUpdate_wad = calcCurrentGlobalInterestIndex_wad();
 
         emit PositionOpened(msg.sender, msg.value);
@@ -114,8 +117,8 @@ contract Stable is ERC20, Ownable, DSMath {
 
         Position storage userPosition = userPositions[msg.sender];
 
-        uint requiredCollateral_debtDenominated = ((userPosition.debt + loanAmount) * POSITION_TAKELOAN_LTV) / 100;
-        uint requiredCollateral = requiredCollateral_debtDenominated / priceOracle.ethPrice();
+        uint requiredCollateral_debtDenominated = wmul((userPosition.debt + loanAmount), POSITION_TAKELOAN_LTV);
+        uint requiredCollateral = wdiv(requiredCollateral_debtDenominated, priceOracle.ethPrice());
 
         require(userPosition.collateral >= requiredCollateral, "Not enough collateral to take this loan");
 
