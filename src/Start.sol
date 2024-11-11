@@ -155,10 +155,11 @@ contract Stable is ERC20, Ownable, DSMath {
         accrueUserInterest(msg.sender);
         // todo: should this be here, or in _repayLoan()?
         // just putting it up there naively would result in the next line not having the right debt value, preventing the user from ever paying back all debt.
+        // so keeping it here for now.
 
         require(userPositions[msg.sender].debt >= repayAmount, "Repay amount must be equal to or less than debt");
 
-        _repayLoanFromMsgSender(msg.sender, repayAmount);
+        repayLoanFromMsgSender(msg.sender, repayAmount);
     }
 
     /// @notice Closes a position by repaying all debt and withdrawing collateral
@@ -170,7 +171,7 @@ contract Stable is ERC20, Ownable, DSMath {
         accrueUserInterest(msg.sender);
 
         // Repay loan if necessary
-        _repayLoanFromMsgSender(msg.sender, userPosition.debt);
+        repayLoanFromMsgSender(msg.sender, userPosition.debt);
 
         uint collateralToReturn = userPosition.collateral;
         userPosition.collateral = 0;
@@ -195,7 +196,7 @@ contract Stable is ERC20, Ownable, DSMath {
 
         require(userPosition.collateral < requiredCollateral, "User is not undercollateralized");
 
-        _repayLoanFromMsgSender(user, userPosition.debt);
+        repayLoanFromMsgSender(user, userPosition.debt);
 
         payable(msg.sender).transfer(userPosition.collateral); // todo: better method?
         userPosition.collateral = 0;
@@ -227,21 +228,13 @@ contract Stable is ERC20, Ownable, DSMath {
     /// @notice Internal function to handle loan repayment logic
     /// @param who Address of the position being repaid
     /// @param repayAmount Amount being repaid
-    function _repayLoanFromMsgSender(address who, uint repayAmount) internal {
+    function repayLoanFromMsgSender(address who, uint repayAmount) internal {
         userPositions[who].debt -= repayAmount;
         _burn(msg.sender, repayAmount);
         emit PositionRepaid(who, repayAmount);
     }
 
     // --- PURE/VIEW FUNCTIONS ---
-
-    /// @notice Calculates the current global interest index
-    /// @return Current global interest index in wad format
-    function calcCurrentGlobalInterestIndex_wad() internal view returns (uint) {
-        uint secondsElapsed = block.timestamp - lastInterestChangeTimestamp;
-
-        return accrueInterest_wad(globalInterestIndex_wad, interestRatePerSecond_ray, secondsElapsed);
-    }
 
     /// @notice Gets a position's current debt including accrued interest
     /// @param user Address of the position
@@ -263,6 +256,14 @@ contract Stable is ERC20, Ownable, DSMath {
     /// @return Amount of collateral
     function getPositionCollateral(address user) external view returns (uint) {
         return userPositions[user].collateral;
+    }
+
+    /// @notice Calculates the current global interest index
+    /// @return Current global interest index in wad format
+    function calcCurrentGlobalInterestIndex_wad() internal view returns (uint) {
+        uint secondsElapsed = block.timestamp - lastInterestChangeTimestamp;
+
+        return accrueInterest_wad(globalInterestIndex_wad, interestRatePerSecond_ray, secondsElapsed);
     }
 
     // taken and modified from https://github.com/wolflo/solidity-interest-helper/blob/master/contracts/Interest.sol#L63C5
