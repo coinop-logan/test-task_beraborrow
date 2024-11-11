@@ -29,7 +29,7 @@ where r_s is the rate per second, r_a is the rate per year (expressed as 1.05 fo
 
 ### More Debt Accrues than can be Repaid
 
-Because positions' debts accrue interest, from the very first debt, the amount of debt that accrues is more than the amount of ether deposited. This means the contract will immediately become insolvent.
+Because positions' debts accrue interest, from the very first debt taken out, the amount of debt that accrues is more than the amount that exists. Thus the contract immediately becomes insolvent.
 
 It's not immediately clear how to address this without going quite outside the scope of the task.
 
