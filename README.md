@@ -1,66 +1,36 @@
-## Foundry
+# Test Task - Berachain
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+## Setup
 
-Foundry consists of:
+Get Foundry: https://book.getfoundry.sh/getting-started/installation
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+## Test
 
-## Documentation
+`forge build`
+`forge test`
 
-https://book.getfoundry.sh/
+## Notes
 
-## Usage
+More notes related to the actual implementation can be seen in src/Stable.sol.
 
-### Build
+### Interest Rate of 5% annually
 
-```shell
-$ forge build
-```
+The task specified that the interest rate should be set at 5% annually. However, the contract as written has an interest rate compounded per second.
 
-### Test
+A value of 1.00000000155 passed in (or as a ray value, 10^27 * 1.00000000155) corresponds to an annual interest rate of close to 5%.
 
-```shell
-$ forge test
-```
+This was calculated with the formula:
 
-### Format
+`r_s = (r_a​)^(1/31,536,000)`
 
-```shell
-$ forge fmt
-```
+where r_s is the rate per second, r_a is the rate per year (expressed as 1.05 for 5%), and 31,536,000 is the number of seconds in the year.
 
-### Gas Snapshots
+### More Debt Accrues than can be Repaid
 
-```shell
-$ forge snapshot
-```
+Because positions' debts accrue interest, from the very first debt, the amount of debt that accrues is more than the amount of ether deposited. This means the contract will immediately become insolvent.
 
-### Anvil
+It's not immediately clear how to address this without going quite outside the scope of the task.
 
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+### Next steps
+* Redesign the contract to address the debt accrual issue.
+* add much more comprehensive test coverage.

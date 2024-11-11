@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import {Test, console} from "forge-std/Test.sol";
 import "@ds-math/math.sol";
-import "../src/Start.sol";
+import "../src/Stable.sol";
 
 contract CounterTest is Test, DSMath {
     address user1 = address(0x1);
