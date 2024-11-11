@@ -14,7 +14,7 @@ contract CounterTest is Test, DSMath {
     MockPriceOracle public priceOracle;
     Stable public stable;
 
-    uint firstInterestRate_wad = 1.0000001e18;
+    uint firstInterestRate_wad = 1.00000000155e18;
 
     // Go from wad (10**18) to ray (10**27)
     function wadToRay(uint _wad) internal pure returns (uint) {
