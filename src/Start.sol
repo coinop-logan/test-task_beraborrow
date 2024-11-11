@@ -81,6 +81,10 @@ contract Stable is ERC20, Ownable, DSMath {
     function getPositionDebtWithInterest(address user) internal view returns (uint) {
         Position storage userPosition = userPositions[user];
 
+        if (userPosition.debt == 0) {
+            return 0;
+        }
+
         return userPosition.debt * calcCurrentGlobalInterestIndex_wad() / userPosition.interestIndexAtLastUpdate_wad;
     }
 
@@ -92,12 +96,21 @@ contract Stable is ERC20, Ownable, DSMath {
         require(userPosition.collateral == 0, "User already has position open");
 
         userPosition.collateral = msg.value;
+        userPosition.interestIndexAtLastUpdate_wad = calcCurrentGlobalInterestIndex_wad();
 
         emit PositionOpened(msg.sender, msg.value);
     }
 
+    function accrueUserInterest(address user) internal {
+        userPositions[user].debt = getPositionDebtWithInterest(user);
+        userPositions[user].interestIndexAtLastUpdate_wad = calcCurrentGlobalInterestIndex_wad();
+        // todo: the above results in two calls to calcCurrentGlobalInterestIndex_wad; code should be reorganized to avoid this.
+    }
+
     function takeLoan(uint loanAmount) external {
         require(loanAmount > 0, "Loan amount must be greater than 0");
+
+        accrueUserInterest(msg.sender);
 
         Position storage userPosition = userPositions[msg.sender];
 
@@ -118,6 +131,11 @@ contract Stable is ERC20, Ownable, DSMath {
 
     function repayLoan(uint repayAmount) public {
         require(repayAmount > 0, "Repay amount must be greater than 0");
+
+        accrueUserInterest(msg.sender);
+        // todo: should this be here, or in _repayLoan()?
+        // just putting it up there naively would result in the next line not having the right debt value, preventing the user from ever paying back all debt.
+
         require(userPositions[msg.sender].debt >= repayAmount, "Repay amount must be equal to or less than debt");
 
         _repayLoan(msg.sender, repayAmount);
@@ -127,6 +145,8 @@ contract Stable is ERC20, Ownable, DSMath {
         Position storage userPosition = userPositions[msg.sender];
 
         require(userPosition.collateral > 0, "User does not have a position open");
+
+        accrueUserInterest(msg.sender);
 
         // Repay loan if necessary
         _repayLoan(msg.sender, userPosition.debt);
