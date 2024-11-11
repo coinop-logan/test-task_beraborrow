@@ -3,6 +3,7 @@ pragma solidity ^0.8.13;
 
 import "@openzeppelin/token/ERC20/ERC20.sol";
 import "@openzeppelin/access/Ownable.sol";
+import "@ds-math/math.sol";
 
 contract MockPriceOracle {
     address public owner;
@@ -23,20 +24,20 @@ contract MockPriceOracle {
     }
 }
 
-contract Stable is ERC20, Ownable {
+contract Stable is ERC20, Ownable, DSMath {
     MockPriceOracle priceOracle;
 
     uint constant POSITION_TAKELOAN_LTV = 1.5e18; // 1.5
     uint constant POSITION_LIQUIDATE_LTV = 1.1e18; // 1.1
 
-    uint public annualInterestRate;
-    uint public globalInterestIndex;
+    uint public interestRatePerSecond_ray;
+    uint public globalInterestIndex_wad;
     uint public lastInterestChangeTimestamp;
 
     struct Position {
         uint collateral;
         uint debt;
-        uint interestIndexAtLastUpdate;
+        uint interestIndexAtLastUpdate_wad;
     }
 
     mapping(address => Position) userPositions;
@@ -44,22 +45,43 @@ contract Stable is ERC20, Ownable {
     event PositionOpened(address indexed user, uint amount);
     event PositionClosed(address indexed user);
 
-    constructor(MockPriceOracle _priceOracle, uint _annualInterestRate)
+    constructor(MockPriceOracle _priceOracle, uint _interestRatePerSecond_ray)
         ERC20("Stable", "STBL")
         Ownable(msg.sender)
     {
-        owner = msg.sender;
         priceOracle = _priceOracle;
 
-        annualInterestRate = _annualInterestRate;
-        globalInterestIndex = 1e18; // starts at 1
+        interestRatePerSecond_ray = _interestRatePerSecond_ray;
+        globalInterestIndex_wad = 1e18; // starts at 1
         lastInterestChangeTimestamp = block.timestamp;
     }
 
-    function updateInterestRate(uint _annualInterestRate) external onlyOwner {
+    function updateInterestRate(uint _interestRatePerSecond_ray) external onlyOwner {
         accrueGlobalInterest();
 
-        annualInterestRate = _annualInterestRate;
+        interestRatePerSecond_ray = _interestRatePerSecond_ray;
+    }
+
+    function accrueGlobalInterest() internal {
+        uint secondsElapsed = block.timestamp - lastInterestChangeTimestamp;
+
+        if (secondsElapsed > 0) {
+            globalInterestIndex_wad = calcCurrentGlobalInterestIndex_wad();
+
+            lastInterestChangeTimestamp = block.timestamp;
+        }
+    }
+
+    function calcCurrentGlobalInterestIndex_wad() internal view returns (uint) {
+        uint secondsElapsed = block.timestamp - lastInterestChangeTimestamp;
+
+        return accrueInterest_wad(globalInterestIndex_wad, interestRatePerSecond_ray, secondsElapsed);
+    }
+
+    function getPositionDebtWithInterest(address user) internal view returns (uint) {
+        Position storage userPosition = userPositions[user];
+
+        return userPosition.debt * calcCurrentGlobalInterestIndex_wad() / userPosition.interestIndexAtLastUpdate_wad;
     }
 
     function openPosition() external payable {
@@ -116,5 +138,8 @@ contract Stable is ERC20, Ownable {
         emit PositionClosed(msg.sender);
     }
 
-
+    // taken and modified from https://github.com/wolflo/solidity-interest-helper/blob/master/contracts/Interest.sol#L63C5-L65C6
+    function accrueInterest_wad(uint _principal, uint _rate_ray, uint _age) internal pure returns (uint) {
+        return rmul(_principal, rpow(_rate_ray, _age));
+    }
 }
