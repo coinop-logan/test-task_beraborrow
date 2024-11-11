@@ -6,8 +6,10 @@ Get Foundry: https://book.getfoundry.sh/getting-started/installation
 
 ## Test
 
-```forge build
-forge test```
+```
+forge build
+forge test
+```
 
 ## Notes
 
