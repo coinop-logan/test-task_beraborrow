@@ -19,7 +19,7 @@ More notes related to the actual implementation can be seen in src/Stable.sol.
 
 The task specified that the interest rate should be set at 5% annually. However, the contract as written has an interest rate compounded per second.
 
-To get an interest rate of 5% annually, a value of 1.00000000155 should be passed in the constructor (as a ray value, so 10^27 * 1.00000000155)
+To get an interest rate of 5% annually, a value of 1.00000000155 should be passed in the constructor (as a ray value, so `1.00000000155e27`)
 
 This was calculated with the formula:
 
