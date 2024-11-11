@@ -45,8 +45,12 @@ contract Stable is ERC20, Ownable, DSMath {
     mapping(address => Position) userPositions;
 
     event PositionOpened(address indexed user, uint amount);
+    event PositionBorrowed(address indexed user, uint amount);
+    event PositionRepaid(address indexed user, uint amount);
     event PositionClosed(address indexed user);
-
+    event PositionLiquidated(address indexed user);
+    event InterestRateUpdated(uint newRate);
+    
     constructor(MockPriceOracle _priceOracle, uint _interestRatePerSecond_ray)
         ERC20("Stable", "STBL")
         Ownable(msg.sender)
@@ -62,6 +66,7 @@ contract Stable is ERC20, Ownable, DSMath {
         accrueGlobalInterest();
 
         interestRatePerSecond_ray = _interestRatePerSecond_ray;
+        emit InterestRateUpdated(_interestRatePerSecond_ray);
     }
 
     function accrueGlobalInterest() internal {
@@ -125,11 +130,13 @@ contract Stable is ERC20, Ownable, DSMath {
         userPosition.debt += loanAmount;
 
         _mint(msg.sender, loanAmount);
+        emit PositionBorrowed(msg.sender, loanAmount);
     }
 
-    function _repayLoan(address who, uint repayAmount) internal {
+    function _repayLoanFromMsgSender(address who, uint repayAmount) internal {
         userPositions[who].debt -= repayAmount;
         _burn(msg.sender, repayAmount);
+        emit PositionRepaid(who, repayAmount);
     }
 
     function repayLoan(uint repayAmount) public {
@@ -141,7 +148,7 @@ contract Stable is ERC20, Ownable, DSMath {
 
         require(userPositions[msg.sender].debt >= repayAmount, "Repay amount must be equal to or less than debt");
 
-        _repayLoan(msg.sender, repayAmount);
+        _repayLoanFromMsgSender(msg.sender, repayAmount);
     }
 
     function closePosition() external {
@@ -152,7 +159,7 @@ contract Stable is ERC20, Ownable, DSMath {
         accrueUserInterest(msg.sender);
 
         // Repay loan if necessary
-        _repayLoan(msg.sender, userPosition.debt);
+        _repayLoanFromMsgSender(msg.sender, userPosition.debt);
 
         uint collateralToReturn = userPosition.collateral;
         userPosition.collateral = 0;
@@ -161,7 +168,29 @@ contract Stable is ERC20, Ownable, DSMath {
         emit PositionClosed(msg.sender);
     }
 
-    // taken and modified from https://github.com/wolflo/solidity-interest-helper/blob/master/contracts/Interest.sol#L63C5-L65C6
+    // Liquidator pays back the full debt and takes all collateral
+    function liquidatePosition(address user) external {
+        Position storage userPosition = userPositions[user];
+
+        require(userPosition.collateral > 0, "User does not have a position open");
+
+        accrueUserInterest(user);
+
+        uint requiredCollateral_debtDenominated = wmul(userPosition.debt, POSITION_LIQUIDATE_LTV);
+        uint requiredCollateral = wdiv(requiredCollateral_debtDenominated, priceOracle.ethPrice());
+
+        require(userPosition.collateral < requiredCollateral, "Not enough collateral to liquidate position");
+
+        _repayLoanFromMsgSender(user, userPosition.debt);
+
+        payable(msg.sender).transfer(userPosition.collateral); // todo: better method?
+        userPosition.collateral = 0;
+
+        emit PositionLiquidated(user);
+    }
+
+
+    // taken and modified from https://github.com/wolflo/solidity-interest-helper/blob/master/contracts/Interest.sol#L63C5
     function accrueInterest_wad(uint _principal, uint _rate_ray, uint _age) internal pure returns (uint) {
         return rmul(_principal, rpow(_rate_ray, _age));
     }
