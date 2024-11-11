@@ -36,6 +36,9 @@ contract MockPriceOracle {
     Interest is accrued per second. The interest rate can be changed by the owner at any time.
     A global interest index is used to calculate the accrued debt on a position at a given time.
 
+    Loans can be taken out repeatedly, and can be partially repaid.
+    However, collateral cannot be added to or partially withdrawn from a position.
+
     Liquidators can liquidate undercollateralized positions.
     They are incentivized to do so for any position that has a collateral ratio above 1.0x.
     Thus this protocol becomes unstable and likely insolvent if the price of ETH falls so quickly
@@ -250,7 +253,9 @@ contract Stable is ERC20, Ownable, DSMath {
             return 0;
         }
 
-        return userPosition.debt * calcCurrentGlobalInterestIndex_wad() / userPosition.interestIndexAtLastUpdate_wad;
+        return wdiv(wmul(userPosition.debt, calcCurrentGlobalInterestIndex_wad()),
+                    userPosition.interestIndexAtLastUpdate_wad
+                   );
     }
 
     /// @notice Gets a position's collateral amount
