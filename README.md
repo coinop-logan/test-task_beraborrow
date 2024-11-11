@@ -6,8 +6,8 @@ Get Foundry: https://book.getfoundry.sh/getting-started/installation
 
 ## Test
 
-`forge build`
-`forge test`
+```forge build
+forge test```
 
 ## Notes
 
@@ -17,7 +17,7 @@ More notes related to the actual implementation can be seen in src/Stable.sol.
 
 The task specified that the interest rate should be set at 5% annually. However, the contract as written has an interest rate compounded per second.
 
-A value of 1.00000000155 passed in (or as a ray value, 10^27 * 1.00000000155) corresponds to an annual interest rate of close to 5%.
+To get an interest rate of 5% annually, a value of 1.00000000155 should be passed in (as a ray value, so 10^27 * 1.00000000155)
 
 This was calculated with the formula:
 
@@ -33,4 +33,4 @@ It's not immediately clear how to address this without going quite outside the s
 
 ### Next steps
 * Redesign the contract to address the debt accrual issue.
-* add much more comprehensive test coverage.
+* Add much more comprehensive test coverage.
